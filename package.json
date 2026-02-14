@@ -1,0 +1,22 @@
+{
+  "name": "worklog-v8",
+  "version": "8.0.2",
+  "main": "electron-main.js",
+  "scripts": {
+    "dist": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.guangzhi.worklog",
+    "productName": "日誌",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": "portable"
+    }
+  },
+  "devDependencies": {
+    "electron": "^40.4.1",
+    "electron-builder": "^26.7.0"
+  }
+}

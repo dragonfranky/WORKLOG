@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日誌 V8.0</title>
+    
+    <link rel="stylesheet" href="css/style.css">
+
+    <script src="js/lib/vue.global.js"></script>
+    <script src="js/lib/pizzip.js"></script>
+    <script src="js/lib/docxtemplater.js"></script>
+    <script src="js/lib/FileSaver.js"></script>
+    <script src="js/lib/xlsx.full.min.js"></script>
+</head>
+<body>
+
+<div id="app" class="container">
+    <div v-if="isLoading" class="loading-mask">
+        <div style="font-size: 2.5rem;">🔄</div>
+        <div>{{ loadingMsg }}</div>
+    </div>
+
+    <div v-if="showLightbox" class="lightbox-overlay" @click="closeLightbox">
+        <img :src="lightboxImg" class="lightbox-img" @click.stop> 
+        <div class="lightbox-hint">點擊背景或按 Esc 關閉</div>
+    </div>
+
+    <div v-if="showSettings" class="modal-mask" @click.self="showSettings = false">
+        <div class="modal-container">
+            <div class="modal-header">⚙️ 系統連結設定</div>
+            <div class="form-group">
+                <label class="form-label">GAS 應用程式網址 (Script URL)</label>
+                <input v-model="config.scriptUrl" class="url-input-large" placeholder="https://script.google.com/macros/s/...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">GAS 驗證金鑰 (Token)</label>
+                <input v-model="config.token" type="password" class="url-input-large" placeholder="輸入你在 GAS 設定的 SYSTEM_ACCESS_TOKEN">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Google Drive 資料夾 ID</label>
+                <input v-model="config.folderId" class="url-input-large" placeholder="例如: 1IagCCHyc9Ku...">
+                <small style="color:#666">圖片將上傳至此資料夾</small>
+            </div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button class="btn btn-grey" @click="saveConfig">儲存並關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <div v-if="showFilterModal" class="modal-mask" @click.self="showFilterModal = false">
+        <div class="modal-container">
+            <div class="modal-header">🔍 產生專案履歷 (PDF)</div>
+            <div class="form-group">
+                <label class="form-label">選擇案件名稱：</label>
+                <select v-model="filter.projectName" class="url-input-large" style="padding: 10px;">
+                    <option value="" disabled>-- 請選擇案件 --</option>
+                    <option v-for="name in uniqueProjectNames" :key="name" :value="name">{{ name }}</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <div class="form-group" style="flex:1;">
+                    <label class="form-label">起始日期</label>
+                    <div style="display: flex; align-items: center;">
+                        <input v-model="filter.startDate" class="url-input-large" placeholder="115.01.01">
+                        <input type="date" class="date-picker-trigger" @input="(e) => handleDatePick(e, filter, 'startDate')">
+                    </div>
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label class="form-label">結束日期</label>
+                    <div style="display: flex; align-items: center;">
+                        <input v-model="filter.endDate" class="url-input-large" placeholder="115.12.31">
+                         <input type="date" class="date-picker-trigger" @input="(e) => handleDatePick(e, filter, 'endDate')">
+                    </div>
+                </div>
+            </div>
+            <div style="text-align: right; margin-top: 20px;">
+                <button class="btn btn-grey" @click="showFilterModal = false" style="margin-right: 10px;">取消</button>
+                <button class="btn btn-blue" @click="generateReport">🔎 生成報告</button>
+            </div>
+        </div>
+    </div>
+
+    <div v-if="showReportMode" class="report-overlay">
+        <div class="report-toolbar">
+            <button class="btn btn-blue" style="padding: 10px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);" @click="printToPdf">🖨️ 匯出 PDF / 列印</button>
+            <button class="btn btn-red" style="padding: 10px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);" @click="closeReport">❌ 關閉預覽</button>
+        </div>
+        <div class="report-container">
+            <div class="report-header">
+                <h1 class="report-title">專案施工履歷：{{ filter.projectName }}</h1>
+                <div class="report-meta">
+                    統計區間：{{ filter.startDate || '最初' }} ~ {{ filter.endDate || '至今' }} <br>
+                    列印日期：{{ new Date().toLocaleDateString() }}
+                </div>
+            </div>
+            <div v-if="filteredLogs.length === 0" style="text-align: center; color: #999; padding: 50px;">
+                在此區間內查無此案件的紀錄。
+            </div>
+            <div v-for="(day, dIdx) in filteredLogs" :key="dIdx" class="report-day-block">
+                <div style="font-size: 1.2rem; font-weight: bold; color: #0277bd; margin-bottom: 10px; border-left: 5px solid #0277bd; padding-left: 10px;">
+                    📅 日期：{{ day.date }}
+                </div>
+                <table class="custom-table" style="border: 1px solid #ccc;">
+                    <thead><tr style="background: #eceff1;"><th style="width: 20%;">案件名稱</th><th style="width: 80%;">施工內容</th></tr></thead>
+                    <tbody>
+                        <tr v-for="(proj, pIdx) in day.projects" :key="pIdx">
+                            <td style="font-weight: bold; background: #fafafa;">{{ proj.name }}</td>
+                            <td>
+                                <div v-for="(item, iIdx) in proj.items" :key="iIdx" style="margin-bottom: 8px;">
+                                    <div style="font-weight: bold;">{{ iIdx + 1 }}). <span v-html="renderHTML(item.content)"></span></div>
+                                    <div v-if="item.imgUrl" style="margin: 5px 0;"><img :src="item.imgUrl" style="max-width: 200px; border: 1px solid #ddd; padding: 2px;"></div>
+                                    <div v-for="(sub, sIdx) in item.subs" :key="sIdx" style="margin-left: 20px; margin-top: 4px;">
+                                        <div>{{ toABC(sIdx) }}. <span v-html="renderHTML(sub.content)"></span></div>
+                                        <div v-if="sub.imgUrl" style="margin: 5px 0;"><img :src="sub.imgUrl" style="max-width: 180px; border: 1px solid #ddd; padding: 2px;"></div>
+                                        <div v-for="(ss, ssIdx) in sub.subsubs" :key="ssIdx" style="margin-left: 20px; color: #555;">
+                                            <div>{{ toRoman(ssIdx + 1) }}. <span v-html="renderHTML(ss.content)"></span></div>
+                                            <div v-if="ss.imgUrl" style="margin: 5px 0;"><img :src="ss.imgUrl" style="max-width: 150px; border: 1px solid #ddd; padding: 2px;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="top-bar">
+        <h1>📑 日誌 V8.0</h1>
+        
+        <div style="background: #e3f2fd; padding: 6px 12px; border-radius: 30px; display: flex; align-items: center; gap: 8px; margin-right: auto; margin-left: 15px; border: 1px solid #90caf9; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);">
+            <span style="font-weight: bold; color: #1565c0; font-size: 0.9rem;">📅 檢視：</span>
+            
+            <select v-model="viewYear" style="padding: 4px 8px; border-radius: 15px; border: 1px solid #b0bec5; font-weight: bold; cursor: pointer; color: #37474f;">
+                <option v-for="y in yearList" :key="y" :value="y">
+                    {{ y }}年 (民國{{ y - 1911 }})
+                </option>
+            </select>
+        
+            <select v-model="viewMonth" style="padding: 4px 8px; border-radius: 15px; border: 1px solid #b0bec5; font-weight: bold; cursor: pointer; color: #37474f;">
+                <option value="all">全年</option>
+                <option v-for="m in 12" :key="m" :value="String(m).padStart(2, '0')">
+                    {{ m }} 月
+                </option>
+            </select>
+        
+            <div style="width: 1px; height: 15px; background: #ccc; margin: 0 5px;"></div>
+            
+            <div style="position: relative; display: flex; align-items: center;">
+                <span style="position: absolute; left: 8px; font-size: 0.9rem;">🔍</span>
+                <input v-model="searchQuery" type="text" placeholder="全域搜尋..." 
+                       style="padding: 4px 25px 4px 28px; border-radius: 15px; border: 1px solid #b0bec5; outline: none; width: 130px; transition: width 0.3s; color: #37474f;"
+                       onfocus="this.style.width='200px'" onblur="if(!this.value) this.style.width='130px'">
+                <button v-if="searchQuery" @click="searchQuery = ''" 
+                        style="position: absolute; right: 8px; background: none; border: none; cursor: pointer; color: #999; font-size: 0.8rem;">✖</button>
+            </div>
+
+            <div style="width: 1px; height: 15px; background: #ccc; margin: 0 5px;"></div>
+            
+            <span style="font-size: 0.85rem; color: #546e7a; font-weight: bold;">
+                {{ visibleCount }} 筆
+            </span>
+        </div>
+        <label class="file-label">📂 匯入 Excel <input type="file" accept=".xlsx" style="display:none" @change="importExcel"></label>
+        <button class="btn btn-blue" @click="exportExcel">💾 輸出 Excel</button>
+        <div style="width: 1px; height: 30px; background: #ddd; margin: 0 10px;"></div>
+        <button class="btn btn-purple" @click="checkAndDownload" title="從 Firebase 下載">☁️ 下載</button>
+        <button class="btn btn-purple" @click="checkAndUpload" title="上傳到 Firebase">☁️ 上傳</button>
+        <button class="btn btn-grey" @click="showSettings = true" title="設定連結">⚙️ 設定</button>
+        <div style="width: 1px; height: 30px; background: #ddd; margin: 0 10px;"></div>
+        <button class="btn btn-dark" @click="printPage">🖨️ 全部列印</button>
+        <button class="btn btn-dark" @click="showFilterModal = true">🔍 專案履歷 & PDF</button>
+        <button class="btn btn-green" :disabled="!templateLoaded" @click="generateDocx">✨ 輸出 Word</button>
+        <label class="file-label" :style="{background: templateLoaded ? '#2e7d32' : '#546e7a'}" style="font-size: 0.8rem; padding: 4px 8px; margin-left: 5px;">
+            {{ templateLoaded ? 'Word 範本 OK' : '載入範本' }}
+            <input type="file" accept=".docx" style="display:none" @change="loadTemplate">
+        </label>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 10px;">
+            <span class="save-status" :class="{ show: isSaved }">💾 已自動儲存</span>
+            <button class="btn btn-orange" @click="syncGDImages" style="font-size: 0.8rem;" title="比對前端與雲端，刪除多餘圖片">♻️ 清理</button>
+            <button class="btn btn-red" @click="clearStorage" style="font-size: 0.8rem;">🗑️ 清空</button>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 20px; display: flex; gap: 10px;" class="controls-area">
+        <button class="btn btn-orange" style="flex: 1; padding: 10px; font-size: 1.1rem;" @click="addNewDay">📅 新增日期 (表格)</button>
+        <button class="btn btn-purple" style="padding: 10px; font-size: 1.1rem;" @click="sortLogs">🔃 依日期重新排序歸位</button>
+    </div>
+
+    <div v-if="logs.length === 0" class="empty-hint">目前無資料，請點擊上方按鈕新增日期，或從 Excel / 雲端匯入。</div>
+
+    <template v-for="(day, dIdx) in logs" :key="day.date">
+    <div v-if="isDayVisible(day)" class="log-day-card" :id="'day-card-' + dIdx">
+        <div class="log-header">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-weight: bold; color: #0277bd;">日期：</span>
+                <input v-model="day.date" class="date-input" placeholder="115.01.14">
+                <input type="date" class="date-picker-trigger" @input="(e) => handleDatePick(e, day, 'date')" title="點擊選擇日期">
+                <select class="import-select" @change="copyFromDate(day, $event)">
+                    <option value="" disabled selected>📂 帶入舊資料...</option>
+                    <option v-for="sourceDay in logs" :key="sourceDay.date" :value="sourceDay.date" :disabled="sourceDay.date === day.date">{{ sourceDay.date }}</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 5px;">
+                <button class="btn-mini btn-dark" style="font-size: 0.9rem; padding: 4px 8px; margin-right: 10px;" @click="printSingleDay(dIdx)" title="只列印這一天">🖨️ 列印此日</button>
+                <button class="btn-mini" style="background: #78909c; font-size: 0.9rem; padding: 4px 8px;" @click="moveDay(dIdx, -1)" :disabled="dIdx === 0" title="上移日期">⬆ 上移</button>
+                <button class="btn-mini" style="background: #78909c; font-size: 0.9rem; padding: 4px 8px;" @click="moveDay(dIdx, 1)" :disabled="dIdx === logs.length - 1" title="下移日期">⬇ 下移</button>
+                <button class="btn btn-red" style="padding: 4px 10px;" @click="removeDay(dIdx)">刪除整日</button>
+            </div>
+        </div>
+
+        <table class="custom-table">
+            <thead><tr><th style="width: 25%;">案件名稱</th><th style="width: 75%;">內容 (主項目 / 子項目 / 子子項目)</th></tr></thead>
+            <tbody>
+                <tr v-if="day.projects.length === 0" class="empty-btn-row">
+                    <td colspan="2" style="text-align: center; color: #999; padding: 20px;">
+                        (此日期尚無案件) <br><button class="btn btn-blue" style="margin-top: 10px;" @click="addProject(dIdx)">+ 新增案件</button>
+                    </td>
+                </tr>
+                <tr v-for="(proj, pIdx) in day.projects" :key="pIdx">
+                    <td class="col-project">
+                        <div style="margin-bottom: 5px;">
+                             <editable-text v-model="proj.name" placeholder="輸入案件名稱..." style="font-weight: bold; color: #37474f;"></editable-text>
+                        </div>
+                        <div style="margin-top: 5px; display: flex; gap: 5px; justify-content: center;" class="action-btns-always-show">
+                            <button class="btn-mini" style="background: #78909c;" @click="moveProject(dIdx, pIdx, -1)" :disabled="pIdx === 0">⬆</button>
+                            <button class="btn-mini" style="background: #78909c;" @click="moveProject(dIdx, pIdx, 1)" :disabled="pIdx === day.projects.length - 1">⬇</button>
+                            <button class="btn-mini" style="background: #ef5350;" @click="removeProject(dIdx, pIdx)">刪除</button>
+                        </div>
+                    </td>
+                    <td class="col-content">
+                        <div v-for="(item, iIdx) in proj.items" :key="iIdx">
+                            <div class="item-row">
+                                <span class="item-marker marker-main">{{ iIdx + 1 }}).</span>
+                                <div class="content-editable">
+                                    <editable-text v-model="item.content" placeholder="主項目內容..."></editable-text>
+                                    <div class="img-preview-box" v-if="item.imgUrl">
+                                         <img :src="item.imgUrl" class="img-thumb" @click="openLightbox(item.imgUrl)" title="點擊放大">
+                                        <button class="btn-mini" style="background:#ef5350;" @click="deleteImage(item)">x</button>
+                                    </div>
+                                </div>
+                                <div class="action-btns">
+                                    <label class="btn-mini" style="background:#ffa000; cursor:pointer; color: white;" title="選擇檔案">
+                                        📷 <input type="file" accept="image/*" style="display:none" @change="handleImageUpload($event, item)">
+                                    </label>
+                                    <button class="btn-mini" style="background:#00897b;" @click="handlePasteImage(item)" title="貼上剪貼簿截圖">📋</button>
+                                    <button class="btn-mini" style="background: #78909c;" @click="moveItem(dIdx, pIdx, iIdx, -1)" :disabled="iIdx === 0" title="上移">⬆</button>
+                                    <button class="btn-mini" style="background: #78909c;" @click="moveItem(dIdx, pIdx, iIdx, 1)" :disabled="iIdx === proj.items.length - 1" title="下移">⬇</button>
+                                    <button class="btn-mini" style="background:#5c6bc0;" @click="addSub(dIdx, pIdx, iIdx)" title="新增子項目">+a</button>
+                                    <button class="btn-mini" style="background:#ef5350;" @click="removeItem(dIdx, pIdx, iIdx)">x</button>
+                                </div>
+                            </div>
+                            <div v-for="(sub, sIdx) in item.subs" :key="sIdx">
+                                <div class="item-row">
+                                     <span class="item-marker marker-sub">{{ toABC(sIdx) }}.</span>
+                                    <div class="content-editable">
+                                        <editable-text v-model="sub.content" placeholder="子項目內容..."></editable-text>
+                                        <div class="img-preview-box" v-if="sub.imgUrl">
+                                            <img :src="sub.imgUrl" class="img-thumb" @click="openLightbox(sub.imgUrl)" title="點擊放大">
+                                            <button class="btn-mini" style="background:#ef5350;" @click="deleteImage(sub)">x</button>
+                                        </div>
+                                    </div>
+                                    <div class="action-btns">
+                                        <label class="btn-mini" style="background:#ffa000; cursor:pointer; color: white;" title="選擇檔案">
+                                            📷 <input type="file" accept="image/*" style="display:none" @change="handleImageUpload($event, sub)">
+                                        </label>
+                                        <button class="btn-mini" style="background:#00897b;" @click="handlePasteImage(sub)" title="貼上剪貼簿截圖">📋</button>
+                                        <button class="btn-mini" style="background: #78909c;" @click="moveSub(dIdx, pIdx, iIdx, sIdx, -1)" :disabled="sIdx === 0" title="上移">⬆</button>
+                                        <button class="btn-mini" style="background: #78909c;" @click="moveSub(dIdx, pIdx, iIdx, sIdx, 1)" :disabled="sIdx === item.subs.length - 1" title="下移">⬇</button>
+                                        <button class="btn-mini" style="background:#8d6e63;" @click="addSubSub(dIdx, pIdx, iIdx, sIdx)" title="新增子子項目">+i</button>
+                                        <button class="btn-mini" style="background:#ef5350;" @click="removeSub(dIdx, pIdx, iIdx, sIdx)">x</button>
+                                    </div>
+                                </div>
+
+                                <div v-for="(ss, ssIdx) in sub.subsubs" :key="ssIdx">
+                                    <div class="item-row">
+                                        <span class="item-marker marker-subsub">{{ toRoman(ssIdx + 1) }}.</span>
+                                        <div class="content-editable">
+                                            <editable-text v-model="ss.content" placeholder="詳細記事..."></editable-text>
+                                            <div class="img-preview-box" v-if="ss.imgUrl">
+                                                <img :src="ss.imgUrl" class="img-thumb" @click="openLightbox(ss.imgUrl)" title="點擊放大">
+                                                <button class="btn-mini" style="background:#ef5350;" @click="deleteImage(ss)">x</button>
+                                            </div>
+                                        </div>
+                                        <div class="action-btns">
+                                            <label class="btn-mini" style="background:#ffa000; cursor:pointer; color: white;" title="選擇檔案">
+                                                📷 <input type="file" accept="image/*" style="display:none" @change="handleImageUpload($event, ss)">
+                                            </label>
+                                            <button class="btn-mini" style="background: #78909c;" @click="handlePasteImage(ss)" title="貼上剪貼簿截圖">📋</button>
+                                            <button class="btn-mini" style="background: #78909c;" @click="moveSubSub(dIdx, pIdx, iIdx, sIdx, ssIdx, -1)" :disabled="ssIdx === 0" title="上移">⬆</button>
+                                            <button class="btn-mini" style="background: #78909c;" @click="moveSubSub(dIdx, pIdx, iIdx, sIdx, ssIdx, 1)" :disabled="ssIdx === sub.subsubs.length - 1" title="下移">⬇</button>
+                                            <button class="btn-mini" style="background:#ef5350;" @click="removeSubSub(dIdx, pIdx, iIdx, sIdx, ssIdx)">x</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-blue" style="width: 100%; font-size: 0.8rem; margin-top: 10px; padding: 2px;" @click="addItem(dIdx, pIdx)">+ 新增主項目</button>
+                    </td>
+                </tr>
+                <tr v-if="day.projects.length > 0" class="empty-btn-row">
+                    <td colspan="2"><button class="btn btn-blue" style="width: 100%; padding: 5px;" @click="addProject(dIdx)">+ 新增案件</button></td>
+                </tr>
+            </tbody>
+        </table>
+    </div> </template>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
