@@ -75,7 +75,7 @@ h1 { margin: 0; font-size: 1.5rem; color: #2c3e50; margin-right: auto; }
 
 /* Images */
 .img-preview-box { margin-top: 5px; display: flex; align-items: center; gap: 8px; }
-.img-thumb { width: 400px; height: auto; border: 1px solid #ccc; border-radius: 4px; cursor: zoom-in; transition: 0.2s; background: white; padding: 2px; }
+.img-thumb { max-width: 400px; width: auto; height: auto; border: 1px solid #ccc; border-radius: 4px; cursor: zoom-in; transition: 0.2s; background: white; padding: 2px; }
 .img-thumb:hover { transform: scale(1.05); border-color: #0277bd; }
 
 /* 專案履歷報告模式樣式 */

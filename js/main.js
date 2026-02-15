@@ -287,7 +287,11 @@ const App = {
             });
         },
         
-        generateDocx() { Exporter.generateDocx(this.logs, this.templateArrayBuffer); },
+        generateDocx() { 
+         // 利用您原本寫好的 isDayVisible 判斷，篩選出畫面上看得到的資料
+         const currentVisibleLogs = this.logs.filter(day => this.isDayVisible(day));
+         Exporter.generateDocx(currentVisibleLogs, this.templateArrayBuffer); 
+        },
         
         loadTemplate(e) {
             const file = e.target.files[0];
