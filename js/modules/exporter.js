@@ -64,16 +64,23 @@ function parseFlattenedData(rows) {
     return newLogs;
 }
 
-export function exportExcel(logs) {
+// ⭐ 括號內新增接收 filePrefix 和 sheetName 變數
+export function exportExcel(logs, filePrefix = "工作日誌資料庫", sheetName = "工作日誌資料庫") {
     try {
         const rows = [["日期", "案件名稱", "主項目(1)", "子項目(a)", "子子項目(i)", "主圖", "子圖", "子子圖", "主圖ID", "子圖ID", "子子圖ID"]];
         const dataRows = getFlattenedData(logs);
         rows.push(...dataRows);
         const ws = XLSX.utils.aoa_to_sheet(rows);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "工作日誌資料庫");
+        
+        // ⭐ 套用動態頁籤名稱
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        
         const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-        const fileName = `工作日誌資料庫_${new Date().toISOString().slice(0,10)}.xlsx`;
+        
+        // ⭐ 套用動態檔案名稱 (保留了原本的日期尾巴，方便您辨識版本)
+        const fileName = `${filePrefix}_${new Date().toISOString().slice(0,10)}.xlsx`;
+        
         saveAs(new Blob([wbout], { type: "application/octet-stream" }), fileName);
     } catch (e) {
         console.error(e);

@@ -25,6 +25,8 @@ const App = {
             viewYear: null,
             viewMonth: null,
             searchQuery: '', // ⭐ 新增：搜尋關鍵字
+            // ⭐ 新增這行：記錄目前停留在哪個分頁
+            currentTab: 'worklog',
             
             showFilterModal: false,
             showReportMode: false, 
@@ -33,17 +35,12 @@ const App = {
         }
     },
     mounted() {
-        // 讀取設定與資料
-        const savedData = localStorage.getItem('workLogData');
         const savedConfig = localStorage.getItem('v7_config');
         if (savedConfig) { try { this.config = JSON.parse(savedConfig); } catch(e) {} }
         if (!this.config.scriptUrl) { const oldUrl = localStorage.getItem('googleScriptUrl'); if (oldUrl) this.config.scriptUrl = oldUrl; }
-        if (savedData) { try { this.logs = JSON.parse(savedData); } catch(e) { console.error(e); } } else { this.addNewDay(); }
         
-        // ⭐ 新增：程式啟動時，自動選取「今天」的年月
-        const today = new Date();
-        this.viewYear = today.getFullYear();
-        this.viewMonth = String(today.getMonth() + 1).padStart(2, '0');
+        // ⭐ 改用專屬函式來載入資料
+        this.loadTabData('worklog');
 
         window.addEventListener('keydown', this.handleKeydown);
     },
@@ -88,9 +85,49 @@ const App = {
         }
     },
     watch: {
-        logs: { handler(newVal) { localStorage.setItem('workLogData', JSON.stringify(newVal)); this.isSaved = true; setTimeout(() => this.isSaved = false, 1500); }, deep: true }
+        logs: { 
+            handler(newVal) { 
+                // ⭐ 動態決定要存進本地端哪個抽屜
+                const storageKey = this.currentTab === 'worklog' ? 'workLogData' : 'notesData';
+                localStorage.setItem(storageKey, JSON.stringify(newVal)); 
+                this.isSaved = true; 
+                setTimeout(() => this.isSaved = false, 1500); 
+            }, 
+            deep: true 
+        }
     },
     methods: {
+        // ⭐ 新增 1：載入指定分頁的資料
+        loadTabData(tabName) {
+            const storageKey = tabName === 'worklog' ? 'workLogData' : 'notesData';
+            const savedData = localStorage.getItem(storageKey);
+            
+            if (savedData) { 
+                try { this.logs = JSON.parse(savedData); } catch(e) { this.logs = []; } 
+            } else { 
+                this.logs = []; 
+                this.addNewDay(); 
+            }
+            
+            // 切換分頁時，自動跳回「今天」的視角，並清空搜尋框
+            const today = new Date();
+            this.viewYear = today.getFullYear();
+            this.viewMonth = String(today.getMonth() + 1).padStart(2, '0');
+            this.searchQuery = '';
+        },
+
+        // ⭐ 新增 2：執行頁籤切換
+        switchTab(tabName) {
+            if (this.currentTab === tabName) return; 
+            this.currentTab = tabName;
+            this.isLoading = true;
+            this.loadingMsg = '切換分頁中...';
+            
+            setTimeout(() => {
+                this.loadTabData(tabName);
+                this.isLoading = false;
+            }, 300);
+        },
         // --- 1. 橋接工具函式 (讓 Template 可以呼叫) ---
         toABC: Utils.toABC,
         toRoman: Utils.toRoman,
@@ -274,13 +311,20 @@ const App = {
         },
 
         // --- 3. 匯出/匯入 (使用 Exporter 模組) ---
-        exportExcel() { Exporter.exportExcel(this.logs); },
+        exportExcel() { 
+        // ⭐ 判斷當前分頁，決定檔名與頁籤名稱
+        const filePrefix = this.currentTab === 'worklog' ? '工作日誌資料庫' : '一般記事';
+        const sheetName = this.currentTab === 'worklog' ? '工作日誌資料庫' : '一般記事資料庫';
+    
+        // 將兩個名稱一起傳給輸出模組
+        Exporter.exportExcel(this.logs, filePrefix, sheetName); 
+        },
         
         importExcel(event) {
             const file = event.target.files[0];
             if(!file) return;
             Exporter.importExcel(file, (newLogs) => {
-                this.cleanUpOldData(); 
+                this.cleanUpOldData('current'); // ⭐ 加上 'current'，只檢查現在這個分頁
                 this.logs = newLogs;
                 alert("資料庫匯入成功！");
                 event.target.value = '';
@@ -301,9 +345,21 @@ const App = {
         },
 
         // --- 4. UI 互動與邏輯 (完全保留原始代碼) ---
-        cleanUpOldData() {
+        // 替換原有的 cleanUpOldData (確保下載覆蓋時，兩邊的圖片都不會變孤兒)
+        cleanUpOldData(mode = 'all') {
             let orphanFiles = [];
-            (this.logs || []).forEach(day => {
+            let targetLogs = [];
+
+            // ⭐ 智慧判斷要檢查的範圍
+            if (mode === 'all') {
+                const worklogData = this.currentTab === 'worklog' ? this.logs : JSON.parse(localStorage.getItem('workLogData') || '[]');
+                const notesData = this.currentTab === 'notes' ? this.logs : JSON.parse(localStorage.getItem('notesData') || '[]');
+                targetLogs = [...worklogData, ...notesData];
+            } else {
+                targetLogs = this.logs; // 'current' 模式：只檢查目前畫面上的資料
+            }
+
+            targetLogs.forEach(day => {
                 (day.projects || []).forEach(proj => {
                     (proj.items || []).forEach(item => {
                         if(item && item.driveId) orphanFiles.push(item.driveId);
@@ -320,8 +376,13 @@ const App = {
                     });
                 });
             });
+            
             if (orphanFiles.length === 0) return;
-            const msg = `⚠️ 警告：目前的畫面上有 ${orphanFiles.length} 張已上傳的圖片！\n\n匯入新資料將會「覆蓋」掉這些紀錄，導致圖片變成永久佔用空間的孤兒檔案。\n\n請問是否要先將這些舊圖片從 Google Drive 刪除？`;
+            
+            // ⭐ 動態顯示警告訊息的名稱
+            const scopeName = mode === 'all' ? '「日誌」與「記事」' : (this.currentTab === 'worklog' ? '「工作日誌」' : '「一般記事」');
+            const msg = `⚠️ 警告：目前的${scopeName}中共有 ${orphanFiles.length} 張已上傳的圖片！\n\n匯入新資料將會「覆蓋」掉這些紀錄，導致圖片變成永久佔用雲端空間的孤兒檔案。\n\n請問是否要先將這些舊圖片從 Google Drive 刪除？`;
+            
             if (confirm(msg)) {
                 orphanFiles.forEach(id => { this.deleteCloudFile(id); });
                 console.log(`已發送 ${orphanFiles.length} 個刪除請求。`);
@@ -352,27 +413,55 @@ const App = {
             this.showReportMode = true;
         },
 
+        // 替換原有的 checkAndUpload (打包上傳)
         async checkAndUpload() {
             if (!this.config.scriptUrl || !this.config.token) { alert("⚠️ 尚未設定連結！"); this.showSettings = true; return; }
-            if(!confirm("⚠️ 確定上傳？")) return;
-            this.isLoading = true; this.loadingMsg = '正在上傳至 Firebase...';
+            if(!confirm("⚠️ 確定將「工作日誌」與「一般記事」一同打包上傳至雲端備份？")) return;
+            this.isLoading = true; this.loadingMsg = '正在打包並上傳至 Firebase...';
             try {
-                const res = await API.syncUpload(this.config, this.logs);
-                if(res.result === "Success") alert("✅ 上傳成功");
+                // 抓取兩邊最新的資料
+                const worklogData = this.currentTab === 'worklog' ? this.logs : JSON.parse(localStorage.getItem('workLogData') || '[]');
+                const notesData = this.currentTab === 'notes' ? this.logs : JSON.parse(localStorage.getItem('notesData') || '[]');
+                
+                // ⭐ 核心技巧：將兩份資料封裝成一個「大包裹」丟給 Firebase
+                const combinedData = {
+                    worklog: worklogData,
+                    notes: notesData
+                };
+
+                const res = await API.syncUpload(this.config, combinedData);
+                if(res.result === "Success") alert("✅ 雙軌資料上傳成功");
                 else alert("❌ 上傳失敗");
             } catch(e) { alert("❌ 錯誤: " + e); }
             this.isLoading = false;
         },
 
+        // 替換原有的 checkAndDownload (拆解下載)
         async checkAndDownload() {
             if (!this.config.scriptUrl || !this.config.token) { alert("⚠️ 尚未設定連結！"); this.showSettings = true; return; }
-            if(!confirm("⚠️ 確定要從雲端「下載」資料嗎？(將覆蓋本地資料)")) return;
-            this.cleanUpOldData();
+            if(!confirm("⚠️ 確定要從雲端「下載」資料嗎？\n(這將會覆蓋您電腦上目前的「日誌」與「記事」資料！)")) return;
+            this.cleanUpOldData('all'); // ⭐ 加上 'all'，因為下載會覆蓋兩邊
             this.isLoading = true; this.loadingMsg = '正在從 Firebase 下載...';
             try {
                 const res = await API.syncDownload(this.config);
-                if(Array.isArray(res)) { this.logs = res; alert("✅ 下載成功"); }
-                else alert("❌ 格式錯誤");
+                
+                if (Array.isArray(res)) {
+                    // 兼容舊版：如果雲端抓下來是舊的純陣列格式，自動升級
+                    localStorage.setItem('workLogData', JSON.stringify(res));
+                    localStorage.setItem('notesData', JSON.stringify([]));
+                    this.logs = this.currentTab === 'worklog' ? res : [];
+                    alert("✅ 下載成功 (已自動升級為雙軌格式)");
+                } else if (res && typeof res === 'object') {
+                    // 拆包新版：將雲端大包裹拆解放回各自的抽屜
+                    const wl = res.worklog || [];
+                    const nt = res.notes || [];
+                    localStorage.setItem('workLogData', JSON.stringify(wl));
+                    localStorage.setItem('notesData', JSON.stringify(nt));
+                    this.logs = this.currentTab === 'worklog' ? wl : nt;
+                    alert("✅ 雙軌資料下載成功");
+                } else {
+                    alert("❌ 格式錯誤");
+                }
             } catch(e) { alert("❌ 錯誤: " + e); }
             this.isLoading = false;
         },
@@ -391,7 +480,20 @@ const App = {
             if(card) card.classList.remove('print-focus');
         },
         handleKeydown(e) { if (e.key === 'Escape') { if(this.showLightbox) this.closeLightbox(); if(this.showReportMode) this.closeReport(); } },
-        clearStorage() { if(confirm("確定清空？")) { this.logs = []; localStorage.removeItem('workLogData'); this.addNewDay(); } },
+        clearStorage() { 
+          // 動態判斷目前分頁的中文名稱，讓提示視窗更清楚
+          const tabName = this.currentTab === 'worklog' ? '工作日誌' : '一般記事';
+    
+          if(confirm(`確定要清空「${tabName}」的所有資料嗎？\n(注意：此動作只會清空目前分頁，不會影響另一個分頁)`)) { 
+              this.logs = []; 
+        
+          // 動態判斷要刪除的資料庫名稱
+          const storageKey = this.currentTab === 'worklog' ? 'workLogData' : 'notesData';
+          localStorage.removeItem(storageKey); 
+        
+          this.addNewDay(); 
+          } 
+        },
         
         // --- 替換這段 addNewDay 函式 ---
         addNewDay() {

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>日誌 V8.0</title>
+    <title>日誌 V8.3</title>
     
     <link rel="stylesheet" href="css/style.css">
 
@@ -128,8 +128,17 @@
     </div>
 
     <div class="top-bar">
-        <h1>📑 日誌 V8.0</h1>
+        <h1>📑 日誌 V8.3</h1>
         
+        <div style="display: flex; gap: 10px; margin: 10px 0 15px 0; width: 100%;">
+            <button class="btn" :class="currentTab === 'worklog' ? 'btn-blue' : 'btn-grey'" @click="switchTab('worklog')" style="flex: 1; font-size: 1.2rem; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-radius: 8px;">
+                👷‍♂️ 專案工作日誌
+            </button>
+            <button class="btn" :class="currentTab === 'notes' ? 'btn-green' : 'btn-grey'" @click="switchTab('notes')" style="flex: 1; font-size: 1.2rem; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-radius: 8px;">
+                📓 一般記事與雜項
+            </button>
+        </div>
+
         <div style="background: #e3f2fd; padding: 6px 12px; border-radius: 30px; display: flex; align-items: center; gap: 8px; margin-right: auto; margin-left: 15px; border: 1px solid #90caf9; box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);">
             <span style="font-weight: bold; color: #1565c0; font-size: 0.9rem;">📅 檢視：</span>
             
