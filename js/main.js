@@ -267,22 +267,26 @@ const App = {
             try {
                 const localIds = new Set();
                 
-                // ⭐ 修正點：加入陣列檢查，防止 undefined 報錯
+                // 收集 ID 的遞迴函式
                 const collect = (arr) => {
-                    if (!Array.isArray(arr)) return; // 如果不是陣列就跳过
+                    if (!Array.isArray(arr)) return; 
                     arr.forEach(item => {
                         if (!item) return;
                         if (item.driveId) localIds.add(item.driveId);
-                        // 遞迴檢查子項目，確保傳入的是陣列或空陣列
                         collect(item.subs || []);
                         collect(item.subsubs || []);
                     });
                 };
 
-                // 主迴圈也要防呆
-                (this.logs || []).forEach(d => {
+                // ⭐ 核心修正：必須同時收集「工作日誌」和「一般記事」的圖片 ID
+                const worklogData = this.currentTab === 'worklog' ? this.logs : JSON.parse(localStorage.getItem('workLogData') || '[]');
+                const notesData = this.currentTab === 'notes' ? this.logs : JSON.parse(localStorage.getItem('notesData') || '[]');
+                const allLocalLogs = [...worklogData, ...notesData];
+
+                // 掃描所有資料
+                allLocalLogs.forEach(d => {
                     (d.projects || []).forEach(p => {
-                        collect(p.items || []); // 這裡加上 || [] 是關鍵
+                        collect(p.items || []); 
                     });
                 });
 
@@ -291,20 +295,22 @@ const App = {
                 if (!result.success) throw new Error(result.message);
                 
                 // 3. 比對
-                const remoteFiles = result.files || []; // 確保雲端回傳的也是陣列
+                const remoteFiles = result.files || []; 
                 const orphans = remoteFiles.filter(f => !localIds.has(f.id));
                 
                 if (orphans.length === 0) {
-                    alert("✅ 同步完成！沒有多餘檔案。");
+                    alert("✅ 同步完成！雲端檔案與本機資料完全相符，沒有孤兒檔案。");
                 } else {
-                    if (confirm(`⚠️ 發現 ${orphans.length} 個未使用的孤兒檔案，是否刪除？`)) {
+                    if (confirm(`⚠️ 發現 ${orphans.length} 個未使用的孤兒檔案，是否刪除？\n\n(這些檔案存在雲端，但「工作日誌」與「一般記事」中都沒有使用到它們)`)) {
                         this.loadingMsg = '正在刪除...';
-                        for (let f of orphans) await API.deleteImageFromGAS(this.config, f.id);
-                        alert("清理完成！");
+                        for (let f of orphans) {
+                            await API.deleteImageFromGAS(this.config, f.id);
+                        }
+                        alert("✅ 清理完成！");
                     }
                 }
             } catch (e) { 
-                console.error(e); // 在 console 顯示詳細錯誤
+                console.error(e); 
                 alert("同步錯誤: " + e.message); 
             }
             this.isLoading = false;
@@ -324,7 +330,7 @@ const App = {
             const file = event.target.files[0];
             if(!file) return;
             Exporter.importExcel(file, (newLogs) => {
-                this.cleanUpOldData('current'); // ⭐ 加上 'current'，只檢查現在這個分頁
+                
                 this.logs = newLogs;
                 alert("資料庫匯入成功！");
                 event.target.value = '';
@@ -440,7 +446,7 @@ const App = {
         async checkAndDownload() {
             if (!this.config.scriptUrl || !this.config.token) { alert("⚠️ 尚未設定連結！"); this.showSettings = true; return; }
             if(!confirm("⚠️ 確定要從雲端「下載」資料嗎？\n(這將會覆蓋您電腦上目前的「日誌」與「記事」資料！)")) return;
-            this.cleanUpOldData('all'); // ⭐ 加上 'all'，因為下載會覆蓋兩邊
+            
             this.isLoading = true; this.loadingMsg = '正在從 Firebase 下載...';
             try {
                 const res = await API.syncDownload(this.config);
