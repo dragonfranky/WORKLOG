@@ -1,6 +1,6 @@
 {
   "name": "worklog-v8",
-  "version": "8.0.2",
+  "version": "8.0.4",
   "main": "electron-main.js",
   "scripts": {
     "dist": "electron-builder --win portable"
