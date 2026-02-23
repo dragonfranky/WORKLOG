@@ -24,6 +24,7 @@ const App = {
             // ⭐ 新增這兩行
             viewYear: null,
             viewMonth: null,
+            viewDay: 'all', // ⭐ 新增：預設顯示全月
             searchQuery: '', // ⭐ 新增：搜尋關鍵字
             // ⭐ 新增這行：記錄目前停留在哪個分頁
             currentTab: 'worklog',
@@ -82,9 +83,28 @@ const App = {
         // ⭐ 新增：計算當下可見的筆數
         visibleCount() {
             return this.logs.filter(day => this.isDayVisible(day)).length;
+        },
+
+        // ⭐ 新增：動態計算目前選擇的月份有幾天
+        daysInSelectedMonth() {
+            if (!this.viewYear || this.viewMonth === 'all') return 31;
+            // 運用 JS 內建 Date 的小技巧：傳入 0 就能自動取得該月的最後一天 (自動處理大小月與閏年)
+            return new Date(this.viewYear, parseInt(this.viewMonth), 0).getDate();
         }
+
     },
     watch: {
+        // ⭐ 新增：監聽月份變化，遇到不合理的日期自動跳回全月
+        viewMonth(newVal) {
+            if (newVal === 'all') {
+                this.viewDay = 'all';
+            } else {
+                const maxDays = new Date(this.viewYear, parseInt(newVal), 0).getDate();
+                if (this.viewDay !== 'all' && parseInt(this.viewDay) > maxDays) {
+                    this.viewDay = 'all'; 
+                }
+            }
+        },
         logs: { 
             handler(newVal) { 
                 // ⭐ 動態決定要存進本地端哪個抽屜
@@ -113,6 +133,7 @@ const App = {
             const today = new Date();
             this.viewYear = today.getFullYear();
             this.viewMonth = String(today.getMonth() + 1).padStart(2, '0');
+            this.viewDay = 'all'; // ⭐ 加入這行：切換分頁預設看全月
             this.searchQuery = '';
         },
 
@@ -159,9 +180,11 @@ const App = {
             
             const dYear = parseInt(parts[0]);
             const dMonth = parts[1];
+            const dDay = parts.length > 2 ? parts[2] : null; // ⭐ 抓出資料中的「日」
 
             if (dYear !== targetRocYear) return false;
             if (this.viewMonth !== 'all' && dMonth !== this.viewMonth) return false;
+            if (this.viewDay !== 'all' && dDay !== this.viewDay) return false;
 
             return true;
         },
@@ -521,6 +544,16 @@ const App = {
                 if (!isCurrentMonth) {
                     targetDay = '01'; 
                 }
+                // ⭐ 新增：判斷是否處於單日檢視模式
+                if (this.viewDay && this.viewDay !== 'all') {
+                    targetDay = this.viewDay; // 直接帶入選定的日子
+                } else {
+                    const isCurrentMonth = (targetYear === today.getFullYear() && targetMonth === String(today.getMonth() + 1).padStart(2, '0'));
+                    if (!isCurrentMonth) {
+                        targetDay = '01'; 
+                    }
+                }
+
             }
 
             // 轉換為民國年格式 (YYY.MM.DD)
@@ -534,6 +567,9 @@ const App = {
             this.viewYear = targetYear;
             if (this.viewMonth !== 'all') {
                 this.viewMonth = targetMonth;
+            }
+            if (this.viewDay !== 'all') {
+                this.viewDay = targetDay;
             }
 
             // 將畫面平滑捲動到最上面，確保他一眼就看到新卡片
