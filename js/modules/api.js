@@ -1,17 +1,21 @@
 // js/modules/api.js
 
-export async function uploadImageToGAS(config, base64) {
-    const res = await fetch(config.scriptUrl, {
-        method: 'POST',
-        body: JSON.stringify({
-            action: 'uploadImage',
-            token: config.token,
-            folderId: config.folderId,
-            base64: base64,
-            fileName: `img_${Date.now()}.jpg`
-        })
+// ⭐ 括號裡面多加一個 dateStr
+export async function uploadImageToGAS(config, base64, dateStr = "") {
+    const payload = {
+        token: config.token,
+        action: "uploadImage",
+        folderId: config.folderId,
+        base64: base64,
+        fileName: "IMG_" + new Date().getTime() + ".jpg",
+        date: dateStr // ⭐ 新增這行：把日期打包傳給 GAS
+    };
+
+    const response = await fetch(config.scriptUrl, {
+        method: "POST",
+        body: JSON.stringify(payload)
     });
-    return await res.json();
+    return response.json();
 }
 
 export async function deleteImageFromGAS(config, fileId) {

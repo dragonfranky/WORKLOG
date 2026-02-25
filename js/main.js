@@ -203,7 +203,8 @@ const App = {
         saveConfig() { localStorage.setItem('v7_config', JSON.stringify(this.config)); this.showSettings = false; },
         
         // ⭐ 1. 抽離出來的共用上傳邏輯 (負責壓縮 + 上傳到 GAS)
-        async uploadImageProcess(blob, item) {
+        // ⭐ 1. 共用上傳邏輯 (接收 dateStr 參數並傳給 API)
+        async uploadImageProcess(blob, item, dateStr) {
             const base64 = await Utils.compressImage(blob);
             item.imgUrl = base64; // 先顯示預覽
 
@@ -216,7 +217,8 @@ const App = {
             this.loadingMsg = '圖片處理上傳中...';
             
             try {
-                const result = await API.uploadImageToGAS(this.config, base64);
+                // ⭐ 這裡多傳遞 dateStr 給 API
+                const result = await API.uploadImageToGAS(this.config, base64, dateStr);
                 if (result.success) { 
                     item.imgUrl = result.url; 
                     item.driveId = result.id; 
@@ -229,30 +231,25 @@ const App = {
             this.isLoading = false;
         },
 
-        // ⭐ 2. 修改原本的檔案上傳 (改呼叫上面的共用邏輯)
-        async handleImageUpload(event, item) {
+        // ⭐ 2. 檔案上傳 (接收 dateStr)
+        async handleImageUpload(event, item, dateStr) {
             const file = event.target.files[0];
             if (!file) return;
-            await this.uploadImageProcess(file, item); // 呼叫共用函式
+            await this.uploadImageProcess(file, item, dateStr); 
             event.target.value = ''; 
         },
 
-        // ⭐ 3. 新增：從剪貼簿貼上圖片
-        async handlePasteImage(item) {
+        // ⭐ 3. 從剪貼簿貼上圖片 (接收 dateStr)
+        async handlePasteImage(item, dateStr) {
             try {
-                // 讀取剪貼簿項目
                 const clipboardItems = await navigator.clipboard.read();
                 
                 for (const clipboardItem of clipboardItems) {
-                    // 尋找是否有圖片類型的資料
                     const imageType = clipboardItem.types.find(type => type.startsWith('image/'));
-                    
                     if (imageType) {
-                        // 取得圖片 Blob
                         const blob = await clipboardItem.getType(imageType);
-                        // 呼叫共用函式直接上傳
-                        await this.uploadImageProcess(blob, item);
-                        return; // 找到一張圖就處理並結束
+                        await this.uploadImageProcess(blob, item, dateStr);
+                        return; 
                     }
                 }
                 alert("📋 剪貼簿裡沒有圖片！\n請先按 Win+Shift+S (或 Mac 的 Cmd+Shift+4) 截圖。");
@@ -607,9 +604,39 @@ const App = {
         copyFromDate(targetDay, event) {
             const sourceDate = event.target.value;
             if (!sourceDate) return;
-            if (!confirm(`從「${sourceDate}」帶入？`)) { event.target.value = ""; return; }
+            
+            // 1. 溫馨提示：告知使用者圖片會被清空
+            if (!confirm(`確定要從「${sourceDate}」帶入資料嗎？\n\n(注意：系統只會帶入「文字內容」。為了避免雲端檔案衝突，舊照片的格子將會被自動清空，請為新日期重新上傳照片。)`)) { 
+                event.target.value = ""; 
+                return; 
+            }
+            
             const sourceDay = this.logs.find(d => d.date === sourceDate);
-            if (sourceDay) { targetDay.projects = JSON.parse(JSON.stringify(sourceDay.projects)); }
+            if (sourceDay) { 
+                // 2. 深拷貝舊資料
+                const copiedProjects = JSON.parse(JSON.stringify(sourceDay.projects));
+                
+                // 3. 建立一個遞迴函式，專門用來「拔除」所有圖片 ID
+                const clearImages = (arr) => {
+                    if (!Array.isArray(arr)) return;
+                    arr.forEach(item => {
+                        if (item) {
+                            item.imgUrl = '';  // 清空畫面的預覽圖
+                            item.driveId = ''; // 清空雲端的連結 ID
+                            clearImages(item.subs);    // 繼續洗子項目
+                            clearImages(item.subsubs); // 繼續洗子子項目
+                        }
+                    });
+                };
+
+                // 4. 執行圖片清洗
+                copiedProjects.forEach(proj => {
+                    clearImages(proj.items);
+                });
+
+                // 5. 把洗乾淨的純文字模板，貼給今天的日誌
+                targetDay.projects = copiedProjects; 
+            }
             event.target.value = "";
         }
     }

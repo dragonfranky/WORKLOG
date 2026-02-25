@@ -259,9 +259,9 @@
                                 </div>
                                 <div class="action-btns">
                                     <label class="btn-mini" style="background:#ffa000; cursor:pointer; color: white;" title="選擇檔案">
-                                        📷 <input type="file" accept="image/*" style="display:none" @change="handleImageUpload($event, item)">
+                                        📷 <input type="file" accept="image/*" style="display:none" @change="handleImageUpload($event, item, day.date)">
                                     </label>
-                                    <button class="btn-mini" style="background:#00897b;" @click="handlePasteImage(item)" title="貼上剪貼簿截圖">📋</button>
+                                    <button class="btn-mini" style="background:#00897b;" @click="handlePasteImage(item, day.date)" title="貼上剪貼簿截圖">📋</button>
                                     <button class="btn-mini" style="background: #78909c;" @click="moveItem(dIdx, pIdx, iIdx, -1)" :disabled="iIdx === 0" title="上移">⬆</button>
                                     <button class="btn-mini" style="background: #78909c;" @click="moveItem(dIdx, pIdx, iIdx, 1)" :disabled="iIdx === proj.items.length - 1" title="下移">⬇</button>
                                     <button class="btn-mini" style="background:#5c6bc0;" @click="addSub(dIdx, pIdx, iIdx)" title="新增子項目">+a</button>
@@ -280,9 +280,9 @@
                                     </div>
                                     <div class="action-btns">
                                         <label class="btn-mini" style="background:#ffa000; cursor:pointer; color: white;" title="選擇檔案">
-                                            📷 <input type="file" accept="image/*" style="display:none" @change="handleImageUpload($event, sub)">
+                                            📷 <input type="file" accept="image/*" style="display:none" @change="handleImageUpload($event, sub, day.date)">
                                         </label>
-                                        <button class="btn-mini" style="background:#00897b;" @click="handlePasteImage(sub)" title="貼上剪貼簿截圖">📋</button>
+                                        <button class="btn-mini" style="background:#00897b;" @click="handlePasteImage(sub, day.date)" title="貼上剪貼簿截圖">📋</button>
                                         <button class="btn-mini" style="background: #78909c;" @click="moveSub(dIdx, pIdx, iIdx, sIdx, -1)" :disabled="sIdx === 0" title="上移">⬆</button>
                                         <button class="btn-mini" style="background: #78909c;" @click="moveSub(dIdx, pIdx, iIdx, sIdx, 1)" :disabled="sIdx === item.subs.length - 1" title="下移">⬇</button>
                                         <button class="btn-mini" style="background:#8d6e63;" @click="addSubSub(dIdx, pIdx, iIdx, sIdx)" title="新增子子項目">+i</button>
@@ -302,9 +302,9 @@
                                         </div>
                                         <div class="action-btns">
                                             <label class="btn-mini" style="background:#ffa000; cursor:pointer; color: white;" title="選擇檔案">
-                                                📷 <input type="file" accept="image/*" style="display:none" @change="handleImageUpload($event, ss)">
+                                                📷 <input type="file" accept="image/*" style="display:none" @change="handleImageUpload($event, ss, day.date)">
                                             </label>
-                                            <button class="btn-mini" style="background: #78909c;" @click="handlePasteImage(ss)" title="貼上剪貼簿截圖">📋</button>
+                                            <button class="btn-mini" style="background: #78909c;" @click="handlePasteImage(ss, day.date)" title="貼上剪貼簿截圖">📋</button>
                                             <button class="btn-mini" style="background: #78909c;" @click="moveSubSub(dIdx, pIdx, iIdx, sIdx, ssIdx, -1)" :disabled="ssIdx === 0" title="上移">⬆</button>
                                             <button class="btn-mini" style="background: #78909c;" @click="moveSubSub(dIdx, pIdx, iIdx, sIdx, ssIdx, 1)" :disabled="ssIdx === sub.subsubs.length - 1" title="下移">⬇</button>
                                             <button class="btn-mini" style="background:#ef5350;" @click="removeSubSub(dIdx, pIdx, iIdx, sIdx, ssIdx)">x</button>
