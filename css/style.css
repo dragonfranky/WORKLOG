@@ -105,3 +105,24 @@ h1 { margin: 0; font-size: 1.5rem; color: #2c3e50; margin-right: auto; }
     .report-container { box-shadow: none; margin: 0; width: 100%; max-width: 100%; padding: 0; }
     .report-toolbar { display: none !important; }
 }
+
+/* --- EditableText 展開/縮合樣式 --- */
+.collapsed-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 4; /* 縮起來時，最多只顯示 4 行 */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis; /* 超出部分顯示 ... */
+}
+
+/* 確保切換按鈕在 hover 時有回饋 */
+.toggle-btn:hover {
+    background: #bbdefb !important;
+    color: #0d47a1 !important;
+}
+
+/* 確保輸入框在取得焦點時外框好看一點 */
+.editor-wrapper textarea:focus {
+    outline: 2px solid #64b5f6;
+    border-radius: 4px;
+}
