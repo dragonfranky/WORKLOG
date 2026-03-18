@@ -43,19 +43,19 @@ h1 { margin: 0; font-size: 1.5rem; color: #2c3e50; margin-right: auto; }
 .custom-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .custom-table th { background: #eceff1; padding: 10px; border-bottom: 2px solid #cfd8dc; text-align: left; color: #455a64; }
 .custom-table td { padding: 10px; border-bottom: 1px solid #eee; vertical-align: top; }
-.col-project { width: 25%; background: #fafafa; border-right: 1px solid #eee; }
-.col-content { width: 75%; }
+.col-project { width: 15%; background: #fafafa; border-right: 1px solid #eee; }
+.col-content { width: 85%; }
 
 /* Items */
-.item-row { display: flex; align-items: flex-start; margin-bottom: 6px; }
-.item-marker { font-weight: bold; min-width: 25px; margin-top: 4px; text-align: right; margin-right: 8px; user-select: none; }
+.item-row { display: flex; align-items: flex-start; margin-bottom: 0px; }
+.item-marker { font-weight: bold; min-width: 25px; margin-top: 2px; text-align: right; margin-right: 0px; user-select: none; font-size: 14px; }
 .marker-main { color: #0277bd; }
-.marker-sub { color: #00695c; margin-left: 15px; }
-.marker-subsub { color: #ad1457; margin-left: 35px; }
+.marker-sub { color: #00695c; margin-left: 10px; }
+.marker-subsub { color: #ad1457; margin-left: 20px; }
 .content-editable { flex: 1; }
-.editor-wrapper textarea { width: 100%; border: 1px solid #90caf9; border-radius: 0 0 4px 4px; padding: 6px; font-family: "Microsoft JhengHei"; font-size: 1rem; resize: vertical; min-height: 2.4em; }
+.editor-wrapper textarea { width: 100%; border: 1px solid #90caf9; border-radius: 0 0 4px 4px; padding: 6px; font-family: "Microsoft JhengHei"; font-size: 14px; resize: vertical; min-height: 2.4em; }
 
-.preview-text { padding: 4px 8px; border: 1px solid transparent; border-radius: 4px; cursor: pointer; min-height: 24px; white-space: pre-wrap; line-height: 1.5; }
+.preview-text { padding: 4px 8px; border: 1px solid transparent; border-radius: 4px; cursor: pointer; min-height: 14px; white-space: pre-wrap; font-size: 14px; line-height: 14px; }
 .preview-text:hover { background: #fffde7; border-color: #ddd; }
 
 /* Toolbar & Tags */
@@ -89,6 +89,11 @@ h1 { margin: 0; font-size: 1.5rem; color: #2c3e50; margin-right: auto; }
 
 /* 列印 / PDF 專用樣式 */
 @media print {
+    /* 👇 新增這段：強制列印引擎保留所有文字的選取與反白能力 */
+    * {
+        -webkit-user-select: text !important;
+        user-select: text !important;
+    }
     .top-bar, .btn, .action-btns, .toolbar, .modal-mask, .lightbox-overlay, .empty-hint, .save-status, .import-select, .empty-btn-row, .controls-area, .action-btns-always-show { display: none !important; }
     .date-picker-trigger { display: none !important; }
     body, .container { width: 100%; max-width: 100%; margin: 0; padding: 0; background: white; }
@@ -104,4 +109,29 @@ h1 { margin: 0; font-size: 1.5rem; color: #2c3e50; margin-right: auto; }
     .report-overlay { position: static; background: white; padding: 0; height: auto; overflow: visible; }
     .report-container { box-shadow: none; margin: 0; width: 100%; max-width: 100%; padding: 0; }
     .report-toolbar { display: none !important; }
+}
+
+/* --- EditableText 展開/縮合樣式 --- */
+.collapsed-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* 縮起來時，最多只顯示 3 行 */
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis; /* 超出部分顯示 ... */
+    }
+    /* 👇 新增這段：只要是長內容（不論展開或縮起），都會套用這個背景色 */
+.has-long-content {
+    background-color: #f5f5f5; 
+}
+
+/* 確保切換按鈕在 hover 時有回饋 */
+.toggle-btn:hover {
+    background: #bbdefb !important;
+    color: #0d47a1 !important;
+}
+
+/* 確保輸入框在取得焦點時外框好看一點 */
+.editor-wrapper textarea:focus {
+    outline: 2px solid #64b5f6;
+    border-radius: 4px;
 }

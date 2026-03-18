@@ -574,7 +574,7 @@ const App = {
         },
         moveDay(idx, dir) { const n = idx+dir; if(n>=0&&n<this.logs.length) [this.logs[idx],this.logs[n]]=[this.logs[n],this.logs[idx]]; },
         removeDay(idx) { if(confirm('刪除整日？')) this.logs.splice(idx, 1); },
-        addProject(dIdx) { this.logs[dIdx].projects.push({ name: '', items: [{ content: '', subs: [], imgUrl: '', driveId: '' }] }); },
+        addProject(dIdx) { this.logs[dIdx].projects.push({ name: '', isCollapsed: false, items: [{ content: '', subs: [], imgUrl: '', driveId: '' }] }); },
         removeProject(dIdx, pIdx) { if(confirm('刪除案件？')) this.logs[dIdx].projects.splice(pIdx, 1); },
         moveProject(dIdx, pIdx, dir) { const arr=this.logs[dIdx].projects; const n=pIdx+dir; if(arr[n]) [arr[pIdx],arr[n]]=[arr[n],arr[pIdx]]; },
         

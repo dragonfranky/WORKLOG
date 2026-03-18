@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>日誌 V8.6</title>
+    <title>日誌 V8.8</title>
     
     <link rel="stylesheet" href="css/style.css">
 
@@ -128,7 +128,7 @@
     </div>
 
     <div class="top-bar">
-        <h1>📑 日誌 V8.6</h1>
+        <h1>📑 日誌 V8.8</h1>
         
         <div style="display: flex; gap: 10px; margin: 10px 0 15px 0; width: 100%;">
             <button class="btn" :class="currentTab === 'worklog' ? 'btn-blue' : 'btn-grey'" @click="switchTab('worklog')" style="flex: 1; font-size: 1.2rem; padding: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border-radius: 8px;">
@@ -228,7 +228,7 @@
         </div>
 
         <table class="custom-table">
-            <thead><tr><th style="width: 25%;">案件名稱</th><th style="width: 75%;">內容 (主項目 / 子項目 / 子子項目)</th></tr></thead>
+            <thead><tr><th style="width: 15%;">案件名稱</th><th style="width: 85%;">內容 </th></tr></thead>
             <tbody>
                 <tr v-if="day.projects.length === 0" class="empty-btn-row">
                     <td colspan="2" style="text-align: center; color: #999; padding: 20px;">
@@ -245,75 +245,84 @@
                             <button class="btn-mini" style="background: #78909c;" @click="moveProject(dIdx, pIdx, 1)" :disabled="pIdx === day.projects.length - 1">⬇</button>
                             <button class="btn-mini" style="background: #ef5350;" @click="removeProject(dIdx, pIdx)">刪除</button>
                         </div>
+                        <button class="btn-mini" style="width: 100%; margin-top: 10px; background: #eceff1; color: #546e7a; border: 1px dashed #b0bec5; padding: 4px; font-weight: bold;" @click="proj.isCollapsed = !proj.isCollapsed">
+                            {{ proj.isCollapsed ? '👀 展開案件內容' : '🙈 收起案件內容' }}
+                        </button>
                     </td>
                     <td class="col-content">
-                        <div v-for="(item, iIdx) in proj.items" :key="iIdx">
-                            <div class="item-row">
-                                <span class="item-marker marker-main">{{ iIdx + 1 }}).</span>
-                                <div class="content-editable">
-                                    <editable-text v-model="item.content" placeholder="主項目內容..."></editable-text>
-                                    <div class="img-preview-box" v-if="item.imgUrl">
-                                         <img :src="item.imgUrl" class="img-thumb" @click="openLightbox(item.imgUrl)" title="點擊放大">
-                                        <button class="btn-mini" style="background:#ef5350;" @click="deleteImage(item)">x</button>
-                                    </div>
-                                </div>
-                                <div class="action-btns">
-                                    <label class="btn-mini" style="background:#ffa000; cursor:pointer; color: white;" title="選擇檔案">
-                                        📷 <input type="file" accept="image/*" style="display:none" @change="handleImageUpload($event, item, day.date)">
-                                    </label>
-                                    <button class="btn-mini" style="background:#00897b;" @click="handlePasteImage(item, day.date)" title="貼上剪貼簿截圖">📋</button>
-                                    <button class="btn-mini" style="background: #78909c;" @click="moveItem(dIdx, pIdx, iIdx, -1)" :disabled="iIdx === 0" title="上移">⬆</button>
-                                    <button class="btn-mini" style="background: #78909c;" @click="moveItem(dIdx, pIdx, iIdx, 1)" :disabled="iIdx === proj.items.length - 1" title="下移">⬇</button>
-                                    <button class="btn-mini" style="background:#5c6bc0;" @click="addSub(dIdx, pIdx, iIdx)" title="新增子項目">+a</button>
-                                    <button class="btn-mini" style="background:#ef5350;" @click="removeItem(dIdx, pIdx, iIdx)">x</button>
-                                </div>
-                            </div>
-                            <div v-for="(sub, sIdx) in item.subs" :key="sIdx">
+                        <div v-show="!proj.isCollapsed">
+                            <div v-for="(item, iIdx) in proj.items" :key="iIdx">
                                 <div class="item-row">
-                                     <span class="item-marker marker-sub">{{ toABC(sIdx) }}.</span>
+                                    <span class="item-marker marker-main">{{ iIdx + 1 }}).</span>
                                     <div class="content-editable">
-                                        <editable-text v-model="sub.content" placeholder="子項目內容..."></editable-text>
-                                        <div class="img-preview-box" v-if="sub.imgUrl">
-                                            <img :src="sub.imgUrl" class="img-thumb" @click="openLightbox(sub.imgUrl)" title="點擊放大">
-                                            <button class="btn-mini" style="background:#ef5350;" @click="deleteImage(sub)">x</button>
+                                        <editable-text v-model="item.content" placeholder="主項目內容..."></editable-text>
+                                        <div class="img-preview-box" v-if="item.imgUrl">
+                                             <img :src="item.imgUrl" class="img-thumb" @click="openLightbox(item.imgUrl)" title="點擊放大">
+                                            <button class="btn-mini" style="background:#ef5350;" @click="deleteImage(item)">x</button>
                                         </div>
                                     </div>
                                     <div class="action-btns">
                                         <label class="btn-mini" style="background:#ffa000; cursor:pointer; color: white;" title="選擇檔案">
-                                            📷 <input type="file" accept="image/*" style="display:none" @change="handleImageUpload($event, sub, day.date)">
+                                            📷 <input type="file" accept="image/*" style="display:none" @change="handleImageUpload($event, item, day.date)">
                                         </label>
-                                        <button class="btn-mini" style="background:#00897b;" @click="handlePasteImage(sub, day.date)" title="貼上剪貼簿截圖">📋</button>
-                                        <button class="btn-mini" style="background: #78909c;" @click="moveSub(dIdx, pIdx, iIdx, sIdx, -1)" :disabled="sIdx === 0" title="上移">⬆</button>
-                                        <button class="btn-mini" style="background: #78909c;" @click="moveSub(dIdx, pIdx, iIdx, sIdx, 1)" :disabled="sIdx === item.subs.length - 1" title="下移">⬇</button>
-                                        <button class="btn-mini" style="background:#8d6e63;" @click="addSubSub(dIdx, pIdx, iIdx, sIdx)" title="新增子子項目">+i</button>
-                                        <button class="btn-mini" style="background:#ef5350;" @click="removeSub(dIdx, pIdx, iIdx, sIdx)">x</button>
+                                        <button class="btn-mini" style="background:#00897b;" @click="handlePasteImage(item, day.date)" title="貼上剪貼簿截圖">📋</button>
+                                        <button class="btn-mini" style="background: #78909c;" @click="moveItem(dIdx, pIdx, iIdx, -1)" :disabled="iIdx === 0" title="上移">⬆</button>
+                                        <button class="btn-mini" style="background: #78909c;" @click="moveItem(dIdx, pIdx, iIdx, 1)" :disabled="iIdx === proj.items.length - 1" title="下移">⬇</button>
+                                        <button class="btn-mini" style="background:#5c6bc0;" @click="addSub(dIdx, pIdx, iIdx)" title="新增子項目">+a</button>
+                                        <button class="btn-mini" style="background:#ef5350;" @click="removeItem(dIdx, pIdx, iIdx)">x</button>
                                     </div>
                                 </div>
-
-                                <div v-for="(ss, ssIdx) in sub.subsubs" :key="ssIdx">
+                                <div v-for="(sub, sIdx) in item.subs" :key="sIdx">
                                     <div class="item-row">
-                                        <span class="item-marker marker-subsub">{{ toRoman(ssIdx + 1) }}.</span>
+                                         <span class="item-marker marker-sub">{{ toABC(sIdx) }}.</span>
                                         <div class="content-editable">
-                                            <editable-text v-model="ss.content" placeholder="詳細記事..."></editable-text>
-                                            <div class="img-preview-box" v-if="ss.imgUrl">
-                                                <img :src="ss.imgUrl" class="img-thumb" @click="openLightbox(ss.imgUrl)" title="點擊放大">
-                                                <button class="btn-mini" style="background:#ef5350;" @click="deleteImage(ss)">x</button>
+                                            <editable-text v-model="sub.content" placeholder="子項目內容..."></editable-text>
+                                            <div class="img-preview-box" v-if="sub.imgUrl">
+                                                <img :src="sub.imgUrl" class="img-thumb" @click="openLightbox(sub.imgUrl)" title="點擊放大">
+                                                <button class="btn-mini" style="background:#ef5350;" @click="deleteImage(sub)">x</button>
                                             </div>
                                         </div>
                                         <div class="action-btns">
                                             <label class="btn-mini" style="background:#ffa000; cursor:pointer; color: white;" title="選擇檔案">
-                                                📷 <input type="file" accept="image/*" style="display:none" @change="handleImageUpload($event, ss, day.date)">
+                                                📷 <input type="file" accept="image/*" style="display:none" @change="handleImageUpload($event, sub, day.date)">
                                             </label>
-                                            <button class="btn-mini" style="background: #78909c;" @click="handlePasteImage(ss, day.date)" title="貼上剪貼簿截圖">📋</button>
-                                            <button class="btn-mini" style="background: #78909c;" @click="moveSubSub(dIdx, pIdx, iIdx, sIdx, ssIdx, -1)" :disabled="ssIdx === 0" title="上移">⬆</button>
-                                            <button class="btn-mini" style="background: #78909c;" @click="moveSubSub(dIdx, pIdx, iIdx, sIdx, ssIdx, 1)" :disabled="ssIdx === sub.subsubs.length - 1" title="下移">⬇</button>
-                                            <button class="btn-mini" style="background:#ef5350;" @click="removeSubSub(dIdx, pIdx, iIdx, sIdx, ssIdx)">x</button>
+                                            <button class="btn-mini" style="background:#00897b;" @click="handlePasteImage(sub, day.date)" title="貼上剪貼簿截圖">📋</button>
+                                            <button class="btn-mini" style="background: #78909c;" @click="moveSub(dIdx, pIdx, iIdx, sIdx, -1)" :disabled="sIdx === 0" title="上移">⬆</button>
+                                            <button class="btn-mini" style="background: #78909c;" @click="moveSub(dIdx, pIdx, iIdx, sIdx, 1)" :disabled="sIdx === item.subs.length - 1" title="下移">⬇</button>
+                                            <button class="btn-mini" style="background:#8d6e63;" @click="addSubSub(dIdx, pIdx, iIdx, sIdx)" title="新增子子項目">+i</button>
+                                            <button class="btn-mini" style="background:#ef5350;" @click="removeSub(dIdx, pIdx, iIdx, sIdx)">x</button>
+                                        </div>
+                                    </div>
+
+                                    <div v-for="(ss, ssIdx) in sub.subsubs" :key="ssIdx">
+                                        <div class="item-row">
+                                            <span class="item-marker marker-subsub">{{ toRoman(ssIdx + 1) }}.</span>
+                                            <div class="content-editable">
+                                                <editable-text v-model="ss.content" placeholder="詳細記事..."></editable-text>
+                                                <div class="img-preview-box" v-if="ss.imgUrl">
+                                                    <img :src="ss.imgUrl" class="img-thumb" @click="openLightbox(ss.imgUrl)" title="點擊放大">
+                                                    <button class="btn-mini" style="background:#ef5350;" @click="deleteImage(ss)">x</button>
+                                                </div>
+                                            </div>
+                                            <div class="action-btns">
+                                                <label class="btn-mini" style="background:#ffa000; cursor:pointer; color: white;" title="選擇檔案">
+                                                    📷 <input type="file" accept="image/*" style="display:none" @change="handleImageUpload($event, ss, day.date)">
+                                                </label>
+                                                <button class="btn-mini" style="background: #78909c;" @click="handlePasteImage(ss, day.date)" title="貼上剪貼簿截圖">📋</button>
+                                                <button class="btn-mini" style="background: #78909c;" @click="moveSubSub(dIdx, pIdx, iIdx, sIdx, ssIdx, -1)" :disabled="ssIdx === 0" title="上移">⬆</button>
+                                                <button class="btn-mini" style="background: #78909c;" @click="moveSubSub(dIdx, pIdx, iIdx, sIdx, ssIdx, 1)" :disabled="ssIdx === sub.subsubs.length - 1" title="下移">⬇</button>
+                                                <button class="btn-mini" style="background:#ef5350;" @click="removeSubSub(dIdx, pIdx, iIdx, sIdx, ssIdx)">x</button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
+                            <button class="btn btn-blue" style="width: 100%; font-size: 0.8rem; margin-top: 10px; padding: 2px;" @click="addItem(dIdx, pIdx)">+ 新增主項目</button>
                         </div>
-                        <button class="btn btn-blue" style="width: 100%; font-size: 0.8rem; margin-top: 10px; padding: 2px;" @click="addItem(dIdx, pIdx)">+ 新增主項目</button>
+
+                        <div v-show="proj.isCollapsed" style="padding: 12px; text-align: center; color: #78909c; background: #f4f6f8; border-radius: 4px; border: 1px dashed #cfd8dc; cursor: pointer;" @click="proj.isCollapsed = false">
+                            💤 此案件已暫時收合 (內部共 {{ proj.items ? proj.items.length : 0 }} 個主項目) —— 點擊此處展開
+                        </div>
                     </td>
                 </tr>
                 <tr v-if="day.projects.length > 0" class="empty-btn-row">
